@@ -374,4 +374,15 @@ Resources:
         TargetGroupARNs:
           - Ref: WebTargetGroup
 
-# Outputs:
+Outputs:
+  VPC:
+    Description: A reference to the created VPC
+    Value: !Ref VPC
+    Export:
+      Name: !Sub ${EnvironmentName}-VPCID #The vpc name to output for input purposes
+
+   WebAppLBDNS:
+    Description: DNS name or Public URL of the Load Balancer
+    Value: !Join ["", ["http://", !GetAtt WebLB.DNSName]]
+    Export:
+      Name: !Sub ${EnvironmentName}-LB-DNS    D #The load balancer DNS to output for input purposes
