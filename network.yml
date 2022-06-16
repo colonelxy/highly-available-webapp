@@ -381,8 +381,8 @@ Outputs:
     Export:
       Name: !Sub ${EnvironmentName}-VPCID #The vpc name to output for input purposes
 
-   WebAppLBDNS:
+  WebAppLBDNS:
     Description: DNS name or Public URL of the Load Balancer
     Value: !Join ["", ["http://", !GetAtt WebLB.DNSName]]
     Export:
-      Name: !Sub ${EnvironmentName}-LB-DNS    D #The load balancer DNS to output for input purposes
+      Name: !Sub ${EnvironmentName}-LB-DNS     #The load balancer DNS to output for input purposes
