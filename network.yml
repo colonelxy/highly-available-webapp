@@ -126,7 +126,75 @@ Resources:
       AllocationId: !GetAtt NATGWEIP2.AllocationId
       SubnetId: !Ref PublicSub2
 
+# Let's work on the routes and route tables
+  PublicRT:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      VpcId: !Ref VPC
+      Tags: 
+        - Key: Name 
+          Value: !Sub ${EnvironmentName}-Public Routes
 
+  DefaultPublicRoute: 
+    Type: AWS::EC2::Route
+    DependsOn: IGW
+    Properties: 
+      RouteTableId: !Ref PublicRT
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref IGW
 
+  PublicSub1RTAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRT
+      SubnetId: !Ref PublicSub1
 
+  PublicSub1RTAssociation:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+        RouteTableId: !Ref PublicRT
+        SubnetId: !Ref PublicSub2
+
+  PrivateRT1:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      VpcId: !Ref VPC
+      Tags: 
+        - Key: Name 
+          Value: !Sub ${EnvironmentName}-Private Routes (AZ1)
+
+  DefaultPrivateRoute1:
+      Type: AWS::EC2::Route
+      Properties:
+        RouteTableId: !Ref PrivateRT1
+        DestinationCidrBlock: 0.0.0.0/0
+        NatGatewayId: !Ref NATGW1
+
+  PrivateSub1RTAssociation:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+        RouteTableId: !Ref PrivateRT1
+        SubnetId: !Ref PrivateSub1
+
+  PrivateRT2:
+      Type: AWS::EC2::RouteTable
+      Properties: 
+        VpcId: !Ref VPC
+        Tags: 
+          - Key: Name 
+            Value: !Sub ${EnvironmentName}-Private Routes (AZ2)
+
+  DefaultPrivateRoute2:
+      Type: AWS::EC2::Route
+      Properties:
+        RouteTableId: !Ref PrivateRT2
+        DestinationCidrBlock: 0.0.0.0/0
+        NatGatewayId: !Ref NATGW2          
+
+  PrivateSub2RTAssociation:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+        RouteTableId: !Ref PrivateRT2
+        SubnetId: !Ref PrivateSub2
+        
 # Outputs:
