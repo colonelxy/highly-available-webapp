@@ -261,7 +261,7 @@ Resources:
 
 
 # Next is web server security group
-  WebServerSecGroup:
+  ServerSecGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Allow http to our hosts and SSH from local only
@@ -279,6 +279,99 @@ Resources:
       - IpProtocol: tcp
         FromPort: 0
         ToPort: 65535
+        CidrIp: 0.0.0.0/0
 
-        
+# It's time to work on the launch configurations
+  LaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          apt-get update -y 
+          apt-get install unzip awscli -y
+          apt-get install apache2 -y
+          systemctl start apache2.service
+          cd /var/www/html
+          rm /var/www/html
+          aws s3 cp s3://my-test-bucket-cli-user/Project.zip .
+          unzip -o Project.zip
+          echo "It works! Udagram, Udacity" > index.html
+      ImageId: ami-0729e439b6769d6ab #get this from the AMI catalog
+      IamInstanceProfile: !Ref ProfileForApp
+      SecurityGroups:
+        - Ref: ServerSecGroup
+      InstanceType: t2.nano #pick the type that will serve you better at the right cost
+      BlockDeviceMappings:
+        - DeviceName: "/dev/sdk"
+          Ebs:
+            VolumeSize: "10" #10GB EBS volume
+
+# Time to balance the load and autoscale
+# Load balancer first
+  WebLB:
+      Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+      Properties:
+        Subnets:
+          - !Ref PublicSub1
+          - !Ref PublicSub2
+        SecurityGroups:
+          - Ref: LBSecGroup
+
+# Then the target group for the load balancer
+
+  WebTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 15 #check health every 15 seconds
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 8
+      HealthyThresholdCount: 2 # declare health if 2 consecutive checks return healthy
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 5 #declare unhealthy if 5 consecutive checks return unhealthy
+      VpcId: !Ref VPC
+
+# Create the load balancer listener
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn:
+          Ref: WebTargetGroup
+      LoadBalancerArn:
+        Ref: WebLB
+      Port: '80'
+      Protocol: HTTP
+
+      # Create the listening rule
+
+  ListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+      - Type: forward
+        TargetGroupArn: !Ref 'WebTargetGroup'
+      Conditions:
+      - Field: path-pattern
+        Values: [/]
+      ListenerArn: !Ref 'Listener'
+      Priority: 1
+
+  # Now to the autoscaling group
+  WebAutoscalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+        VPCZoneIdentifier:  
+          - !Ref PrivateSub1
+          - !Ref PrivateSub2 
+        LaunchConfigurationName:
+            Ref: LaunchConfig
+        MinSize: '4' #the minimum instances
+        MaxSize: '6' #the maximum instances
+        TargetGroupARNs:
+          - Ref: WebTargetGroup
+
 # Outputs:
