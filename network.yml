@@ -1,0 +1,132 @@
+Description: >
+  Harold | Highly available webapp
+  A cloudformation template to deply a highly available web app
+
+Parameters:
+  EnvironmentName:
+    Description: An environment name that will be prefixed to resource names
+    Type: String
+    Default: applaunch
+
+  VpcCIDR:
+    Description: Please enter the IP range  for this VPC
+    Type: String
+    Default: 10.0.0.0/16
+
+  PublicSub1CIDR:
+    Description: Please enter the IP range for the public subnet in the first Availability Zone
+    Type: String
+    Default: 10.0.0.0/24
+
+  PublicSub2CIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet in the second Availability Zone
+    Type: String
+    Default: 10.0.1.0/24
+
+  PrivateSub1CIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet in the first Availability Zone
+    Type: String
+    Default: 10.0.2.0/24
+
+  PrivateSub2CIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet in the second Availability Zone
+    Type: String
+    Default: 10.0.3.0/24
+
+Resources:
+# Create the vpc
+
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR    #reference the cidrblock from the parameters above
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName
+
+  PublicSub1: 
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC  #reference the vpc from the parameters above
+      AvailabilityZone: !Select [0, !GetAZs ""]  #select from the available AZs and pick the first one
+      CidrBlock: !Ref PublicSub1CIDR  #reference the cidrblock from the parameters above
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-Public Subnet (AZ1)
+
+  PublicSub2: 
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [1, !GetAZs ""] #select from the available AZs and pick the first one
+      CidrBlock: !Ref PublicSub2CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-Public Subnet (AZ2)
+
+  PrivateSub1: 
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [0, !GetAZs ""] # set this private subnet in the first AZ
+      CidrBlock: !Ref PrivateSub1CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-Private Subnet (AZ1)
+
+  PrivateSub2: 
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      CidrBlock: !Ref PrivateSub2CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-Private Subnet (AZ2)
+
+  IGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName
+
+  IGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref IGW #reference it from the above internet gateway
+      VpcId: !Ref VPC
+
+  NATGWEIP1:
+    Type: AWS::EC2::EIP
+    DependsOn: IGWAttachment
+    Properties:
+      Domain: vpc
+
+  NATGWEIP2:
+    Type: AWS::EC2::EIP
+    DependsOn: IGWAttachment
+    Properties:
+      Domain: vpc
+
+  NATGW1: 
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NATGWEIP1.AllocationId
+      SubnetId: !Ref PublicSub1
+
+  NATGW2: 
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NATGWEIP2.AllocationId
+      SubnetId: !Ref PublicSub2
+
+
+
+
+# Outputs:
